@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVG Themer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>SVG Themer</h1>
+        </header>
+
+        <div class="upload-section">
+            <div class="input-group">
+                <label for="svgFile">Upload SVG File:</label>
+                <input type="file" id="svgFile" accept=".svg">
+                <div class="sample-link">
+                    <a href="sample.svg" download>Download sample SVG</a>
+                    <button id="loadSample">Load sample directly</button>
+                </div>
+            </div>
+            <div class="input-group">
+                <label for="apiKey">OpenAI API Key:</label>
+                <input type="password" id="apiKey" placeholder="Enter your OpenAI API key">
+                <small class="warning">Note: API key is stored temporarily in memory only.</small>
+            </div>
+        </div>
+
+        <div class="display-section">
+            <div id="svgDisplay" class="svg-display">
+                <p class="placeholder">Upload an SVG to begin...</p>
+            </div>
+            <div id="status" class="status"></div>
+        </div>
+
+        <div id="themeSelector" class="theme-selector">
+            <!-- Themes will be dynamically added here -->
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
