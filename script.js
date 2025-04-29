@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // DOM Elements
     const svgFileInput = document.getElementById('svgFile');
     const apiKeyInput = document.getElementById('apiKey');
+    const modelSelector = document.getElementById('modelSelector');
     const svgDisplay = document.getElementById('svgDisplay');
     const themeSelector = document.getElementById('themeSelector');
     const statusElement = document.getElementById('status');
@@ -52,15 +53,21 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Check if API key is provided
             const apiKey = apiKeyInput.value.trim();
+            const selectedModel = modelSelector.value;
             let themes;
             
             if (!apiKey) {
                 updateStatus('No API key provided. Using sample themes...');
                 themes = getMockThemes(extractedColors);
             } else {
-                // Call OpenAI API
-                updateStatus('Generating themes with OpenAI API...');
-                themes = await callOpenAIAPI(pngBase64, extractedColors, apiKey);
+                // Call the appropriate API based on the selected model
+                if (selectedModel === 'openai') {
+                    updateStatus('Generating themes with OpenAI API...');
+                    themes = await callOpenAIAPI(pngBase64, extractedColors, apiKey);
+                } else if (selectedModel === 'gemini') {
+                    updateStatus('Generating themes with Gemini API...');
+                    themes = await callGeminiAPI(pngBase64, extractedColors, apiKey);
+                }
             }
             
             // Display themes
@@ -328,6 +335,96 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    async function callGeminiAPI(pngBase64, colors, apiKey) {
+        console.log('Calling Gemini API with colors:', colors);
+        
+        // Construct the request body
+        const requestBody = {
+            contents: [
+                {
+                    role: "user",
+                    parts: [
+                        {
+                            text: "Generate alternative color themes based on an SVG image's existing colors. The input will include the image and a list of all colors with their IDs.\n\n# Input Format\n- SVG Image\n- Color List: [ hex: string, ...]\n\n# Analysis Steps\n\n1. IMAGE CONTEXT\n- Analyze image content and purpose\n- Identify design style and intended mood\n- Note color relationships and hierarchy\n\n2. COLOR CATEGORIZATION\n- Categorize provided colors by their roles:\n  • Main/Brand colors\n  • Background colors\n  • Text/Content colors\n  • Decorative/Accent colors\n  • Interactive elements\n- Note color relationships and usage patterns\n\n3. THEME GENERATION\n- Create alternative themes preserving:\n  • Color relationships\n  • Visual hierarchy\n  • Functional contrast\n  • Original design intent\n- Each theme should provide new hex values for all original color IDs\n\n# Output Format\n\n## 1. Analysis\n\n### Image Context:\n\n\"Brief description\",\n\"Design style\",\n\"Intended mood\",\n\n### Color Analysis:\n\n#### color_roles\n\n      1. main_colors roles\n      2. background_colors roles\n      3. content_colors roles\n      4. accent_colors roles\n      5. interactive_colors roles\n\n\n## 2. Themes\n\n```json\n{\n  \"themes\": [\n    {\n      \"name\": \"Theme name\",\n      \"description\": \"Theme description\",\n      \"mood\": \"Intended mood\",\n      \"colors\": [\n        {\n          \"role\": \"color role\"\n          \"original\": \"#XXXXXX\",\n          \"new\": \"#XXXXXX\",\n        },\n        ...\n      ]\n    },\n    ...\n  ]\n}\n```\n\n# Guidelines\n\n- Maintain sufficient contrast ratios\n- Preserve visual hierarchy\n- Consider color accessibility\n- Keep color relationships consistent\n- Respect brand color guidelines if present\n- Account for different color roles (UI elements, text, backgrounds)\n\n# Theme Diversity Requirements\n\n- Generate 5 - 10 diverse themes with different aesthetic styles and moods\n- Themes should represent a range of different color approaches, such as:\n  • Contrasting color schemes (e.g., light/dark, complementary colors)\n  • Different color temperatures (e.g., warm, cool, neutral)\n  • Various aesthetic styles (e.g., minimalist, vibrant, muted, professional)\n  • Different emotional tones (e.g., energetic, calm, playful, serious)\n- Adapt themes to be appropriate for the specific content and purpose of the SVG\n- Each theme should have a distinct visual identity while maintaining the functional purpose of the original design\n- Consider the subject matter of the SVG when generating themes (e.g., nature-inspired themes for natural scenes, tech-oriented themes for UI elements)\n\n# Notes\n\n- Number of themes and categorization should be determined by image context\n- Color roles should be inferred from usage patterns\n- Generated themes should maintain functional clarity\n- Consider cultural and psychological color implications\n- Final Theme JSON should be accurate so that can be parsed by code"
+                        },
+                        {
+                            inline_data: {
+                                mime_type: "image/png",
+                                data: pngBase64
+                            }
+                        },
+                        {
+                            text: `Color List: ${JSON.stringify(colors)}`
+                        }
+                    ]
+                }
+            ],
+            generation_config: {
+                temperature: 1.0,
+                top_p: 0.95,
+                top_k: 40,
+                max_output_tokens: 32768,
+            },
+            model: "gemini-2.0-flash"
+        };
+
+        // Make the API call
+        const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': apiKey
+            },
+            body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`API Error: ${errorData.error?.message || response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        // Log the response data for debugging
+        console.log('API Response:', data);
+        
+        let responseText = '';
+        
+        // Handle Gemini API response structure
+        if (data.candidates && data.candidates.length > 0 && 
+            data.candidates[0].content && data.candidates[0].content.parts && 
+            data.candidates[0].content.parts.length > 0) {
+            responseText = data.candidates[0].content.parts[0].text;
+        } else {
+            console.error('Unexpected API response structure:', data);
+            throw new Error('Unexpected API response structure. Check console for details.');
+        }
+        
+        if (!responseText) {
+            console.error('No response text found in API response');
+            throw new Error('No response text found in API result');
+        }
+        
+        console.log('Response text:', responseText);
+        
+        // Extract JSON from the response text
+        const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
+        if (!jsonMatch) {
+            console.error('No JSON found in response text:', responseText);
+            throw new Error('No JSON found in API response');
+        }
+        
+        try {
+            const jsonText = jsonMatch[1];
+            console.log('Extracted JSON:', jsonText);
+            const themesData = JSON.parse(jsonText);
+            return themesData.themes;
+        } catch (error) {
+            console.error('Failed to parse JSON:', error, jsonMatch[1]);
+            throw new Error('Failed to parse themes JSON from API response');
+        }
+    }
+
     async function loadSampleSvg() {
         try {
             updateStatus('Loading sample SVG...');
@@ -395,15 +492,21 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Check if API key is provided
             const apiKey = apiKeyInput.value.trim();
+            const selectedModel = modelSelector.value;
             let themes;
             
             if (!apiKey) {
                 updateStatus('No API key provided. Using sample themes...');
                 themes = getMockThemes(extractedColors);
             } else {
-                // Call OpenAI API
-                updateStatus('Generating themes with OpenAI API...');
-                themes = await callOpenAIAPI(pngBase64, extractedColors, apiKey);
+                // Call the appropriate API based on the selected model
+                if (selectedModel === 'openai') {
+                    updateStatus('Generating themes with OpenAI API...');
+                    themes = await callOpenAIAPI(pngBase64, extractedColors, apiKey);
+                } else if (selectedModel === 'gemini') {
+                    updateStatus('Generating themes with Gemini API...');
+                    themes = await callGeminiAPI(pngBase64, extractedColors, apiKey);
+                }
             }
             
             // Display themes

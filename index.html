@@ -22,8 +22,15 @@
                 </div>
             </div>
             <div class="input-group">
-                <label for="apiKey">OpenAI API Key:</label>
-                <input type="password" id="apiKey" placeholder="Enter your OpenAI API key">
+                <label for="modelSelector">AI Model:</label>
+                <select id="modelSelector">
+                    <option value="openai">OpenAI GPT-4.1-mini</option>
+                    <option value="gemini">Google Gemini 2.0 Flash</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label for="apiKey">API Key:</label>
+                <input type="password" id="apiKey" placeholder="Enter your API key">
                 <small class="warning">Note: API key is stored temporarily in memory only.</small>
             </div>
         </div>
